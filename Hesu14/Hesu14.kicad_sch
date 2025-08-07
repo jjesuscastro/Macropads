@@ -1737,7 +1737,7 @@
 	)
 	(global_label "VCC"
 		(shape input)
-		(at 93.98 82.55 90)
+		(at 88.9 82.55 90)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -1747,7 +1747,7 @@
 		)
 		(uuid "a29247fd-4bb5-4b25-9173-7e265d07d558")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 93.98 75.9362 90)
+			(at 88.9 75.9362 90)
 			(effects
 				(font
 					(size 1.27 1.27)
