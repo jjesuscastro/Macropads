@@ -3,6 +3,25 @@
 
 #include QMK_KEYBOARD_H
 
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    switch(keycode) {
+        case MO(1):
+            if(record->event.pressed) {
+                register_code(KC_F23);
+            } else {
+                unregister_code(KC_F23);
+            }
+            break;
+        case MO(2):
+            if(record->event.pressed) {
+                register_code(KC_F24);
+            } else {
+                unregister_code(KC_F24);
+            }
+    }
+    return true;
+}
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     /*
      * ┌───┬───┬───┬───┐
