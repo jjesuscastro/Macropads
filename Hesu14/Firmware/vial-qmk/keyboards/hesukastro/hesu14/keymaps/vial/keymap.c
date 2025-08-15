@@ -1,17 +1,36 @@
 #include QMK_KEYBOARD_H
-#include "frog.c"
+#include <qp.h>
+#include "animation.qgf.h"
+#include "animation_2.qgf.h"
 
-#ifdef OLED_ENABLE
-oled_rotation_t oled_init_user(oled_rotation_t rotation) {
-    return OLED_ROTATION_180;
+#ifdef QUANTUM_PAINTER_ENABLE
+painter_device_t display;
+
+static painter_image_handle_t my_image = NULL;
+static deferred_token my_anim;
+
+void keyboard_post_init_kb(void) {
+    display = qp_sh1106_make_i2c_device(128, 32, 0x3c);
+    qp_init(display, QP_ROTATION_180);   // Initialise the display
+    qp_power(display, true);
+
+    my_image = qp_load_image_mem(gfx_animation_2);
+    if (my_image != NULL) {
+        my_anim = qp_animate(display, 0, 0, my_image);
+    }
 }
 
-bool oled_task_user(void) {
-
-    render_animation();
-    // oled_write_raw_P(image, sizeof(image));
-    return false;
-}
+// void housekeeping_task_user(void) {
+//     static uint32_t last_draw = 0;
+//     if (timer_elapsed32(last_draw) > 33) { // Throttle to 30fps
+//         last_draw = timer_read32();
+//         // Draw 8px-wide rainbow down the left side of the display
+//         for (int i = 0; i < 239; ++i) {
+//             qp_line(display, 0, i, 7, i, i, 255, 255);
+//         }
+//         qp_flush(display);
+//     }
+// }
 #endif
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
