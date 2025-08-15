@@ -4,6 +4,5 @@ VIAL_ENABLE = yes
 
 QUANTUM_PAINTER_ENABLE = yes
 QUANTUM_PAINTER_DRIVERS += sh1106_i2c
-QUANTUM_PAINTER_DISPLAY_TIMEOUT = 0
 SRC += animation.qgf.c
 SRC += animation_2.qgf.c
