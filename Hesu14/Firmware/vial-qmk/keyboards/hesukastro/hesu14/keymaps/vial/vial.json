@@ -1,5 +1,22 @@
 
 {
+    "customKeycodes": [
+        {
+            "name": "QPNext",
+            "title": "Next Animation",
+            "shortName": "QP_NEXT"
+        }, 
+        {
+            "name": "QPPrev",
+            "title": "Previous Animation",
+            "shortName": "QP_PREV"
+        },
+        {
+            "name": "TogAHK",
+            "title": "Toggle AHK",
+            "shortName": "TOG_AHK"
+        }
+    ],
     "matrix": {
         "rows": 4,
         "cols": 4

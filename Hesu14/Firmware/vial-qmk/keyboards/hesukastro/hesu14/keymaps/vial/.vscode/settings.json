@@ -1,3 +1,9 @@
 {
-    "C_Cpp.errorSquiggles": "disabled"
+    "C_Cpp.errorSquiggles": "disabled",
+    "files.associations": {
+        "animation_2.qgf.h": "c",
+        "animation.qgf.h": "c",
+        "animation_3.qgf.h": "c",
+        "yibbygibby.qgf.h": "c"
+    }
 }
