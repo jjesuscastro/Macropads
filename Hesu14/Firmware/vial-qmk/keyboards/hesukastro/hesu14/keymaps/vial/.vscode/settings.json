@@ -4,6 +4,7 @@
         "animation_2.qgf.h": "c",
         "animation.qgf.h": "c",
         "animation_3.qgf.h": "c",
-        "yibbygibby.qgf.h": "c"
+        "yibbygibby.qgf.h": "c",
+        "animations.h": "c"
     }
 }
