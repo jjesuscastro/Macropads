@@ -83,22 +83,19 @@ uint32_t ahk_message_callback(uint32_t trigger_time, void *cb_arg) {
     return 0;
 }
 
-void show_ahk_status(void) {
+void show_status(const char *msg) {
     if (my_anim != INVALID_DEFERRED_TOKEN) {
         qp_stop_animation(my_anim);
         my_anim = INVALID_DEFERRED_TOKEN;
     }
 
-    showing_ahk_status = true;
     qp_clear(display);
 
-    const char *msg = user_config.is_using_AHK ? "AHK On" : "AHK Off";
+    uint8_t text_width  = qp_textwidth(font, msg);
+    uint8_t display_height = qp_get_height(display);
 
-    uint8_t text_width  = qp_get_width(display);
-    uint8_t text_height = qp_get_height(display);
-
-    int16_t x = (128 - text_width) / 2;
-    int16_t y = (32 - text_height) / 2;
+    int16_t x = (128-text_width) / 2;
+    int16_t y = display_height / 2;
 
     qp_drawtext(display, x, y, font, msg);
 
@@ -164,8 +161,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case TOG_AHK:
             if (record->event.pressed) {
                 user_config.is_using_AHK = !user_config.is_using_AHK;
+                showing_ahk_status = true;
+                
+                if(!user_config.is_using_AHK) {
+                    unregister_code(KC_F23);
+                    unregister_code(KC_F24);
+                }
+
                 eeconfig_update_user(user_config.raw);
-                show_ahk_status();   // <— show text when toggled
+                show_status(user_config.is_using_AHK ? "AHK On" : "AHK Off");
             }
             break;
     }
