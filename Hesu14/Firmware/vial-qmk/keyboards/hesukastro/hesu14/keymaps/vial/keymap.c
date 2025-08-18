@@ -16,13 +16,21 @@ typedef union {
 user_config_t user_config;
 
 /* ------------------------- Image Data ------------------------- */
-const uint8_t * const gfx_images[] = {
+const uint8_t * const animations[] = {
     gfx_togepi_128x32,
     gfx_yibbygibby,
     gfx_bonggocat
 };
 
-#define NUM_IMAGES (sizeof(gfx_images) / sizeof(gfx_images[0]))
+const uint8_t * const images[] = {
+    gfx_layer0,
+    gfx_layer1,
+    gfx_layer2,
+    gfx_layer3
+};
+
+#define NUM_ANIMATIONS (sizeof(animations) / sizeof(animations[0]))
+#define NUM_IMAGES (sizeof(images) / sizeof(images[0]))
 
 /* ------------------------- Custom Keycodes ------------------------- */
 enum custom_keycodes {
@@ -35,9 +43,11 @@ enum custom_keycodes {
 painter_device_t display;
 static painter_image_handle_t my_image = NULL;
 static painter_font_handle_t font = NULL;
-static deferred_token my_anim = INVALID_DEFERRED_TOKEN;
-static deferred_token ahk_msg_token = INVALID_DEFERRED_TOKEN;
-static bool showing_ahk_status = false;
+static deferred_token anim_token = INVALID_DEFERRED_TOKEN;
+static deferred_token msg_token = INVALID_DEFERRED_TOKEN;
+static deferred_token layer_image_token = INVALID_DEFERRED_TOKEN;
+static bool showing_status = false;
+static uint32_t layer_image_counter = 0;
 static uint16_t last_anim_switch = 0;
 
 /* ------------------------- Functions ------------------------- */
@@ -58,9 +68,9 @@ bool can_switch_anim(void) {
 }
 
 void load_animation(uint8_t index) {
-    if (my_anim != INVALID_DEFERRED_TOKEN) {
-        qp_stop_animation(my_anim);
-        my_anim = INVALID_DEFERRED_TOKEN;
+    if (anim_token != INVALID_DEFERRED_TOKEN) {
+        qp_stop_animation(anim_token);
+        anim_token = INVALID_DEFERRED_TOKEN;
     }
 
     if (my_image != NULL) {
@@ -68,25 +78,35 @@ void load_animation(uint8_t index) {
         my_image = NULL;
     }
 
-    my_image = qp_load_image_mem(gfx_images[index]);
+    my_image = qp_load_image_mem(animations[index]);
 
     if (my_image) {
-        my_anim = qp_animate(display, 0, 0, my_image);
+        anim_token = qp_animate(display, 0, 0, my_image);
         user_config.current_image_index = index;
         eeconfig_update_user(user_config.raw);
     }
 }
 
-uint32_t ahk_message_callback(uint32_t trigger_time, void *cb_arg) {
-    showing_ahk_status = false;
+uint32_t message_callback(uint32_t trigger_time, void *cb_arg) {
+    showing_status = false;
     load_animation(user_config.current_image_index);
     return 0;
 }
 
+uint32_t resume_animation_callback(uint32_t trigger_time, void *cb_arg) {
+    uint32_t token = (uint32_t)(uintptr_t)cb_arg;
+
+    if (token == layer_image_counter) {
+        load_animation(user_config.current_image_index);
+        layer_image_token = INVALID_DEFERRED_TOKEN;
+    }
+    return 0;
+}
+
 void show_status(const char *msg) {
-    if (my_anim != INVALID_DEFERRED_TOKEN) {
-        qp_stop_animation(my_anim);
-        my_anim = INVALID_DEFERRED_TOKEN;
+    if (anim_token != INVALID_DEFERRED_TOKEN) {
+        qp_stop_animation(anim_token);
+        anim_token = INVALID_DEFERRED_TOKEN;
     }
 
     qp_clear(display);
@@ -99,7 +119,7 @@ void show_status(const char *msg) {
 
     qp_drawtext(display, x, y, font, msg);
 
-    ahk_msg_token = defer_exec(2000, ahk_message_callback, NULL);
+    msg_token = defer_exec(2000, message_callback, NULL);
 }
 
 /* ------------------------- Init ------------------------- */
@@ -111,58 +131,77 @@ void keyboard_post_init_kb(void) {
     font = qp_load_font_mem(font_arial);
 
     user_config.raw = eeconfig_read_user();
-    if (user_config.current_image_index >= NUM_IMAGES) {
+    if (user_config.current_image_index >= NUM_ANIMATIONS) {
         user_config.current_image_index = 0;
     }
 
     load_animation(user_config.current_image_index);
 }
 
+layer_state_t layer_state_set_user(layer_state_t state) {
+    uint8_t layer = biton32(state);
+
+    if (anim_token != INVALID_DEFERRED_TOKEN) {
+        qp_stop_animation(anim_token);
+        anim_token = INVALID_DEFERRED_TOKEN;
+    }
+
+    if (my_image != NULL) {
+        qp_close_image(my_image);
+        my_image = NULL;
+    }
+
+    if (layer < NUM_IMAGES) {
+        my_image = qp_load_image_mem(images[layer]);
+        if (my_image) {
+            anim_token = qp_animate(display, 0, 0, my_image);
+        }
+    }
+
+    // Increment counter, schedule resume callback with current counter
+    layer_image_counter++;
+    layer_image_token = defer_exec(2000, resume_animation_callback, (void*)(uintptr_t)layer_image_counter);
+
+    return state;
+}
+
 /* ------------------------- Key Processing ------------------------- */
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    switch (keycode) {
-        case MO(1):
-            if (!user_config.is_using_AHK) break;
-            if (record->event.pressed) {
+    if(record->event.pressed) { // key pressed
+        switch (keycode) {
+            case MO(1):
+                if (!user_config.is_using_AHK) break;
                 register_code(KC_F23);
-            } else {
-                unregister_code(KC_F23);
-            }
-            break;
+                break;
 
-        case MO(2):
-            if (!user_config.is_using_AHK) break;
-            if (record->event.pressed) {
+            case MO(2):
+                if (!user_config.is_using_AHK) break;
                 register_code(KC_F24);
-            } else {
-                unregister_code(KC_F24);
-            }
-            break;
+                break;
 
-        case QP_NEXT:
-            if (record->event.pressed && can_switch_anim()) {
-                user_config.current_image_index =
-                    (user_config.current_image_index + 1) % NUM_IMAGES;
-                load_animation(user_config.current_image_index);
-            }
-            break;
-
-        case QP_PREV:
-            if (record->event.pressed && can_switch_anim()) {
-                if (user_config.current_image_index == 0) {
-                    user_config.current_image_index = NUM_IMAGES - 1;
-                } else {
-                    user_config.current_image_index--;
+            case QP_NEXT:
+                if (can_switch_anim()) {
+                    user_config.current_image_index =
+                        (user_config.current_image_index + 1) % NUM_ANIMATIONS;
+                    load_animation(user_config.current_image_index);
                 }
-                load_animation(user_config.current_image_index);
-            }
-            break;
+                break;
 
-        case TOG_AHK:
-            if (record->event.pressed) {
+            case QP_PREV:
+                if (can_switch_anim()) {
+                    if (user_config.current_image_index == 0) {
+                        user_config.current_image_index = NUM_ANIMATIONS - 1;
+                    } else {
+                        user_config.current_image_index--;
+                    }
+                    load_animation(user_config.current_image_index);
+                }
+                break;
+
+            case TOG_AHK:
                 user_config.is_using_AHK = !user_config.is_using_AHK;
-                showing_ahk_status = true;
-                
+                showing_status = true;
+
                 if(!user_config.is_using_AHK) {
                     unregister_code(KC_F23);
                     unregister_code(KC_F24);
@@ -170,9 +209,22 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
                 eeconfig_update_user(user_config.raw);
                 show_status(user_config.is_using_AHK ? "AHK On" : "AHK Off");
-            }
-            break;
+                break;
+        }
+    } else { // key released
+        switch (keycode) {
+            case MO(1):
+                if (!user_config.is_using_AHK) break;
+                unregister_code(KC_F23);
+                break;
+
+            case MO(2):
+                if (!user_config.is_using_AHK) break;
+                unregister_code(KC_F24);
+                break;
+        }
     }
+
     return true;
 }
 
@@ -192,7 +244,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
      * └───────┴───────┴─────────┴─────────┘
      */
     [0] = LAYOUT(
-                        QP_PREV,   QP_NEXT,
+                        TO(3),   TO(1),
         KC_1,   KC_2,   KC_3,   KC_4,
         KC_5,   KC_6,   KC_7,   KC_8,
         MO(1),  KC_9,   KC_0,   MO(2)
@@ -211,7 +263,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
      * └───────┴───────┴─────────┴─────────┘
      */
     [1] = LAYOUT(
-                        KC_A,   KC_B,
+                        TO(0),   TO(2),
         KC_C,   KC_D,   KC_E,   KC_F,
         KC_G,   KC_H,   KC_I,   KC_J,
         KC_TRNS, KC_K,  KC_L,   MO(3)
@@ -230,7 +282,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
      * └───────┴───────┴─────────┴─────────┘
      */
     [2] = LAYOUT(
-                        KC_M,   KC_N,
+                        TO(1),   TO(3),
         KC_O,   KC_P,   KC_Q,   KC_R,
         KC_S,   KC_T,   KC_U,   KC_V,
         KC_TRNS, KC_W,  KC_X,   KC_TRNS
@@ -249,8 +301,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
      * └───────┴───────┴─────────┴───────────────┘
      */
     [3] = LAYOUT(
-                              KC_TRNS,   QK_BOOTLOADER,
-        KC_TRNS,   KC_TRNS,   KC_TRNS,   KC_TRNS,
+                              TO(2),   TO(0),
+        QP_PREV,   QP_NEXT,   KC_TRNS,   KC_TRNS,
         KC_TRNS,   KC_TRNS,   KC_TRNS,   KC_TRNS,
         KC_TRNS,   KC_TRNS,   KC_TRNS,   KC_TRNS
     )

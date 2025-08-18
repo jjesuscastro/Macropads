@@ -5,6 +5,9 @@
         "animation.qgf.h": "c",
         "animation_3.qgf.h": "c",
         "yibbygibby.qgf.h": "c",
-        "animations.h": "c"
+        "animations.h": "c",
+        "layer0.qgf.h": "c",
+        "bonggocat.qgf.h": "c",
+        "layer1.qgf.h": "c"
     }
 }
